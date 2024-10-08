@@ -7,6 +7,8 @@ from langchain.llms import HuggingFacePipeline
 from langchain.chains import RetrievalQA
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 import torch
+import pymupdf
+import os
 
 def fetch_webpage_content(url):
     """
@@ -25,18 +27,48 @@ def fetch_webpage_content(url):
     cleaned_text = '\n'.join(line for line in lines if line)
     return cleaned_text
 
+def extract_text_from_pdf(pdf_path):
+    """
+    Extracts text content from a PDF file.
+    """
+    text = ""
+    with pymupdf.open(pdf_path) as pdf:
+        for page_num in range(len(pdf)):
+            page = pdf.load_page(page_num)
+            text += page.get_text()
+    return text
+
+def read_file_content(file_path):
+    """
+    Reads and returns the content of a text or PDF file.
+    """
+    if not os.path.exists(file_path):
+        raise Exception(f"File not found: {file_path}")
+
+    if file_path.lower().endswith('.pdf'):
+        return extract_text_from_pdf(file_path)
+    else:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            return file.read()
+
 def main():
-    # Step 1: Get the webpage URL from the user
-    url = input("Enter the URL of the webpage: ").strip()
-    if not url:
-        print("No URL provided. Exiting.")
+    # Step 1: Get the webpage URL or file path from the user
+    user_input = input("Enter the URL of the webpage or the path to a text or PDF file: ").strip()
+    if not user_input:
+        print("No input provided. Exiting.")
         return
 
     # Step 2: Fetch and clean the webpage content
-    print("\nFetching webpage content...")
+    print("\nFetching content...")
     try:
-        text = fetch_webpage_content(url)
-        print("Webpage content fetched successfully.\n")
+        if user_input.startswith("http://") or user_input.startswith("https://"):
+            # If input is a URL, fetch webpage content
+            text = fetch_webpage_content(user_input)
+            print("Webpage content fetched successfully.\n")
+        else:
+            # Otherwise, treat input as a file path
+            text = read_file_content(user_input)
+            print("File content read successfully.\n")
     except Exception as e:
         print(f"Error: {e}")
         return
