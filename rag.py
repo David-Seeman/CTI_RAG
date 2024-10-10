@@ -9,6 +9,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 import torch
 import pymupdf
 import os
+from summarizer import Summarizer
 
 def fetch_webpage_content(url):
     """
@@ -50,6 +51,18 @@ def read_file_content(file_path):
     else:
         with open(file_path, 'r', encoding='utf-8') as file:
             return file.read()
+         
+def summarize_chunk(chunk):
+    """
+    Generates a brief summary for a given chunk.
+    Testing semantic anchor using a BERT-based summarizer.
+    """
+
+    model = Summarizer()
+    summary = model(chunk, min_length=100)
+    full = ''.join(summary)
+    # print("Summary: " + summary)
+    return summary
 
 def main():
     # Step 1: Get the webpage URL or file path from the user
@@ -79,10 +92,25 @@ def main():
     chunks = text_splitter.split_text(text)
     print(f"Text split into {len(chunks)} chunks.\n")
 
+    # Create a list of dictionaries to store chunks with their metadata
+    chunk_metadata = []
+    for idx, chunk in enumerate(chunks):
+        metadata = {
+            "index": idx,
+            "summary": summarize_chunk(chunk),
+            "length": len(chunk)
+        }
+        chunk_metadata.append((chunk, metadata))
+    print(f"Text split into {len(chunks)} chunks with metadata.\n")
+
     # Step 4: Create embeddings for the text chunks
     print("Creating embeddings for text chunks...")
     embeddings = HuggingFaceEmbeddings(model_name='sentence-transformers/all-MiniLM-L6-v2')
-    vector_store = FAISS.from_texts(chunks, embeddings)
+    vector_store = FAISS.from_texts(
+        [chunk for chunk, _ in chunk_metadata], 
+        embeddings, 
+        metadatas=[meta for _, meta in chunk_metadata]
+    )
     print("Embeddings created and vector store initialized.\n")
 
     # Step 5: Load the language model
