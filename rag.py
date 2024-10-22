@@ -5,7 +5,7 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.llms import HuggingFacePipeline
 from langchain.chains import RetrievalQA
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModelForSeq2SeqLM, pipeline
 import torch
 import pymupdf
 import os
@@ -59,8 +59,8 @@ def summarize_chunk(chunk):
     """
 
     model = Summarizer()
-    summary = model(chunk, min_length=100)
-    full = ''.join(summary)
+    summary = model.get_summary(chunk, "randomTitle")
+    full = summary[0]['sentence']
     # print("Summary: " + summary)
     return summary
 
@@ -115,9 +115,9 @@ def main():
 
     # Step 5: Load the language model
     print("Loading the language model...")
-    model_name = "google/flan-t5-small"  # You can choose other models like 't5-base' or 't5-large'
+    model_name = "Qwen/Qwen2.5-7B-Instruct"  # You can choose other models like 't5-base' or 't5-large'
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+    model = AutoModelForCausalLM.from_pretrained(model_name)
     pipe = pipeline(
         "text2text-generation",
         model=model,
@@ -132,7 +132,7 @@ def main():
         llm=llm,
         chain_type="stuff",
         retriever=vector_store.as_retriever(),
-        return_source_documents=False
+        return_source_documents=False,
     )
 
     # Step 7: Interactive Q&A Loop
