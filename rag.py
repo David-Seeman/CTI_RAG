@@ -5,7 +5,7 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.llms import HuggingFacePipeline
 from langchain.chains import RetrievalQA
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModelForSeq2SeqLM, pipeline
 import torch
 import pymupdf
 import os
@@ -51,16 +51,16 @@ def read_file_content(file_path):
     else:
         with open(file_path, 'r', encoding='utf-8') as file:
             return file.read()
-         
+     
 def summarize_chunk(chunk):
     """
     Generates a brief summary for a given chunk.
     Testing semantic anchor using a BERT-based summarizer.
     """
 
-    model = Summarizer()
-    summary = model(chunk, min_length=100)
-    full = ''.join(summary)
+    model2 = Summarizer()
+    summary = model2.get_summary(chunk, "randomTitle")
+    full = summary[0]['sentence']
     # print("Summary: " + summary)
     return summary
 
@@ -93,11 +93,12 @@ def main():
     print(f"Text split into {len(chunks)} chunks.\n")
 
     # Create a list of dictionaries to store chunks with their metadata
+    
     chunk_metadata = []
     for idx, chunk in enumerate(chunks):
         metadata = {
             "index": idx,
-            "summary": summarize_chunk(chunk),
+            # "summary": summarize_chunk(chunk),
             "length": len(chunk)
         }
         chunk_metadata.append((chunk, metadata))
@@ -115,15 +116,21 @@ def main():
 
     # Step 5: Load the language model
     print("Loading the language model...")
-    model_name = "google/flan-t5-small"  # You can choose other models like 't5-base' or 't5-large'
+    model_name = "Qwen/Qwen2.5-7B-Instruct"  # You can choose other models like 't5-base' or 't5-large'
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+    model = AutoModelForCausalLM.from_pretrained(model_name)
+
+    model_quantized = torch.quantization.quantize_dynamic(
+        model, {torch.nn.linear}, dtype = torch.qint8
+    )
+
     pipe = pipeline(
         "text2text-generation",
-        model=model,
+        model=model_quantized,
         tokenizer=tokenizer,
         device=0 if torch.cuda.is_available() else -1
     )
+
     llm = HuggingFacePipeline(pipeline=pipe)
     print("Language model loaded successfully.\n")
 
@@ -132,7 +139,7 @@ def main():
         llm=llm,
         chain_type="stuff",
         retriever=vector_store.as_retriever(),
-        return_source_documents=False
+        return_source_documents=False,
     )
 
     # Step 7: Interactive Q&A Loop
