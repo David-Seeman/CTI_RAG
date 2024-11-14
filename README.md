@@ -11,3 +11,7 @@ pip install requests beautifulsoup4 langchain faiss-cpu transformers torch langc
 python -m spacy download en
 
 pip install 'numpy<2.0.0' 
+
+#FOR AYHAM .ipynb FILE: 
+
+pip install langchain_openai
